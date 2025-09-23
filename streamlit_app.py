@@ -82,25 +82,42 @@ if produtos_df.empty:
 
 st.success(f"✅ {len(produtos_df)} produtos carregados")
 
-# Busca simples
+# Filtro por categoria
+if 'categoria' in produtos_df.columns:
+    categorias = ['Todas'] + sorted(produtos_df['categoria'].unique().tolist())
+    categoria_selecionada = st.selectbox("📂 Categoria:", categorias)
+    
+    if categoria_selecionada == 'Todas':
+        produtos_filtrados = produtos_df
+    else:
+        produtos_filtrados = produtos_df[produtos_df['categoria'] == categoria_selecionada]
+    
+    st.info(f"📦 {len(produtos_filtrados)} produtos na categoria '{categoria_selecionada}'")
+else:
+    produtos_filtrados = produtos_df
+
+# Busca
 busca = st.text_input("🔍 Buscar produto:", placeholder="Digite código ou nome...")
 
 if busca and len(busca) >= 2:
-    # Filtrar produtos
-    mask = (produtos_df['codigo'].astype(str).str.contains(busca, case=False, na=False) | 
-            produtos_df['nome'].astype(str).str.contains(busca, case=False, na=False))
-    produtos_encontrados = produtos_df[mask].head(5)
+    # Filtrar produtos (dentro da categoria selecionada)
+    mask = (produtos_filtrados['codigo'].astype(str).str.contains(busca, case=False, na=False) | 
+            produtos_filtrados['nome'].astype(str).str.contains(busca, case=False, na=False))
+    produtos_encontrados = produtos_filtrados[mask].head(5)
     
     if not produtos_encontrados.empty:
         st.write(f"**{len(produtos_encontrados)} produto(s) encontrado(s):**")
         
         for i, (idx, produto) in enumerate(produtos_encontrados.iterrows()):
-            # Card do produto
-            st.markdown(f"""
-            **{produto['codigo']} - {produto['nome']}**  
-            Categoria: {produto.get('categoria', 'N/A')}  
-            Estoque: {int(produto['estoque_atual'])} unidades
-            """)
+            # Card do produto melhorado
+            with st.container():
+                st.markdown(f"""
+                <div style="background: #f0f2f6; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #1f77b4;">
+                    <strong style="font-size: 1.1em;">{produto['codigo']} - {produto['nome']}</strong><br>
+                    <small>📂 {produto.get('categoria', 'N/A')}</small><br>
+                    <strong style="color: #1f77b4;">📦 Estoque: {int(produto['estoque_atual'])} unidades</strong>
+                </div>
+                """, unsafe_allow_html=True)
             
             # Controles
             col1, col2 = st.columns(2)
@@ -131,6 +148,27 @@ if busca and len(busca) >= 2:
             st.markdown("---")
     else:
         st.info("Nenhum produto encontrado")
+
+elif not busca:
+    st.info("💡 Digite pelo menos 2 caracteres para buscar")
+
+# Produtos com estoque baixo (acesso rápido)
+st.subheader("⚠️ Estoque Baixo")
+produtos_baixos = produtos_filtrados[produtos_filtrados['estoque_atual'] <= produtos_filtrados['estoque_min']]
+
+if not produtos_baixos.empty:
+    st.warning(f"🚨 {len(produtos_baixos)} produto(s) com estoque baixo!")
+    
+    if st.button("👁️ Ver Produtos com Estoque Baixo"):
+        for i, (idx, produto) in enumerate(produtos_baixos.head(3).iterrows()):
+            st.markdown(f"""
+            <div style="background: #fff3cd; padding: 0.8rem; border-radius: 6px; margin: 0.3rem 0; border-left: 4px solid #ffc107;">
+                <strong>{produto['codigo']} - {produto['nome']}</strong><br>
+                <small>📦 Atual: {int(produto['estoque_atual'])} | Mínimo: {int(produto['estoque_min'])}</small>
+            </div>
+            """, unsafe_allow_html=True)
+else:
+    st.success("✅ Nenhum produto com estoque baixo!")
 
 # Resumo
 st.subheader("📊 Resumo")
