@@ -41,7 +41,7 @@ st.markdown("""
 
 # URLs
 SHEETS_URL = "https://docs.google.com/spreadsheets/d/1PpiMQingHf4llA03BiPIuPJPIZqul4grRU_emWDEK1o/export?format=csv"
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzf2jgGAPqJWXI2tIm5R4kC-j2NPaSvbKq1xVYAXHtcSyjNwMohK4UK_ppMqPkfFT8/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzCxotWn-SXG52CXU7tNnd7KtBhx1uYwHr-ka2qWjswTcfj3QvHuA1VvDo-BL_fpg8U/exec"
 
 # Funções
 @st.cache_data(ttl=30)
@@ -50,8 +50,8 @@ def carregar_produtos():
         response = requests.get(SHEETS_URL, timeout=10)
         df = pd.read_csv(StringIO(response.text))
         
-        # Validar colunas
-        required_cols = ['codigo', 'nome', 'categoria', 'estoque_atual', 'estoque_min', 'estoque_max']
+        # Validar colunas obrigatórias
+        required_cols = ['codigo', 'nome', 'categoria', 'estoque_atual', 'estoque_min']
         for col in required_cols:
             if col not in df.columns:
                 st.error(f"Coluna '{col}' não encontrada na planilha")
@@ -61,11 +61,17 @@ def carregar_produtos():
         df = df.dropna(subset=['codigo', 'nome'])
         df['estoque_atual'] = pd.to_numeric(df['estoque_atual'], errors='coerce').fillna(0)
         df['estoque_min'] = pd.to_numeric(df['estoque_min'], errors='coerce').fillna(0)
-        df['estoque_max'] = pd.to_numeric(df['estoque_max'], errors='coerce').fillna(0)
         
-        # Calcular faltas
+        # Verificar se existe coluna estoque_max (opcional)
+        if 'estoque_max' in df.columns:
+            df['estoque_max'] = pd.to_numeric(df['estoque_max'], errors='coerce').fillna(0)
+            df['falta_max'] = (df['estoque_max'] - df['estoque_atual']).clip(lower=0)
+        else:
+            df['estoque_max'] = 0
+            df['falta_max'] = 0
+        
+        # Calcular falta para mínimo
         df['falta_min'] = (df['estoque_min'] - df['estoque_atual']).clip(lower=0)
-        df['falta_max'] = (df['estoque_max'] - df['estoque_atual']).clip(lower=0)
         
         return df
         
@@ -160,7 +166,8 @@ if busca and len(busca) >= 2:
             <div class="produto-card">
                 <strong>{produto['codigo']} - {produto['nome']}</strong><br>
                 <small>{produto['categoria']}</small><br>
-                <strong>Estoque atual: {produto['estoque_atual']} un</strong>
+                <strong>Estoque atual: {produto['estoque_atual']} un</strong><br>
+                <small>Estoque mínimo: {produto['estoque_min']} un</small>
             </div>
             """, unsafe_allow_html=True)
             
@@ -226,50 +233,27 @@ col1.metric("Produtos", total_produtos)
 col2.metric("Estoque Total", f"{estoque_total:,.0f}")
 col3.metric("Estoque Baixo", produtos_baixos)
 
-# Relatórios
-st.subheader("📊 Relatórios")
+# Relatórios Simples
+st.subheader("📊 Relatórios Rápidos")
 
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
 with col1:
-    if st.button("📋 Estoque Baixo"):
+    if st.button("📋 Ver Estoque Baixo"):
         baixo = produtos_df[produtos_df['estoque_atual'] <= produtos_df['estoque_min']]
         if not baixo.empty:
             st.write("**Produtos com Estoque Baixo:**")
-            relatorio = baixo[['codigo', 'nome', 'categoria', 'estoque_atual', 'estoque_min', 'falta_min']].copy()
-            relatorio.columns = ['Código', 'Produto', 'Categoria', 'Estoque Atual', 'Estoque Mín', 'Qtd Faltante']
-            st.dataframe(relatorio, use_container_width=True)
-            csv = relatorio.to_csv(index=False)
-            st.download_button("💾 Baixar CSV", csv, "estoque_baixo.csv", "text/csv")
+            for _, produto in baixo.iterrows():
+                falta = max(0, produto['estoque_min'] - produto['estoque_atual'])
+                st.write(f"• **{produto['codigo']}** - {produto['nome']}")
+                st.write(f"  Atual: {produto['estoque_atual']} | Mín: {produto['estoque_min']} | Falta: {falta}")
         else:
             st.success("✅ Nenhum produto com estoque baixo!")
 
 with col2:
-    if st.button("📈 Falta p/ Máximo"):
-        falta_max = produtos_df[produtos_df['falta_max'] > 0]
-        if not falta_max.empty:
-            st.write("**Produtos que podem ser reabastecidos:**")
-            relatorio = falta_max[['codigo', 'nome', 'categoria', 'estoque_atual', 'estoque_max', 'falta_max']].copy()
-            relatorio.columns = ['Código', 'Produto', 'Categoria', 'Estoque Atual', 'Estoque Máx', 'Pode Comprar']
-            st.dataframe(relatorio, use_container_width=True)
-            csv = relatorio.to_csv(index=False)
-            st.download_button("💾 Baixar CSV", csv, "reabastecimento.csv", "text/csv")
-        else:
-            st.info("ℹ️ Todos os produtos no estoque máximo!")
-
-with col3:
-    if st.button("📋 Relatório Geral"):
-        st.write("**Relatório Completo de Estoque:**")
-        relatorio = produtos_df[['codigo', 'nome', 'categoria', 'estoque_atual', 'estoque_min', 'estoque_max', 'falta_min', 'falta_max']].copy()
-        relatorio.columns = ['Código', 'Produto', 'Categoria', 'Atual', 'Mín', 'Máx', 'Falta Mín', 'Falta Máx']
-        st.dataframe(relatorio, use_container_width=True)
-        csv = relatorio.to_csv(index=False)
-        st.download_button("💾 Baixar CSV", csv, "relatorio_geral.csv", "text/csv")
-
-# Atualizar
-if st.button("🔄 Atualizar Dados"):
-    st.cache_data.clear()
-    st.rerun()
+    if st.button("🔄 Atualizar Dados"):
+        st.cache_data.clear()
+        st.rerun()
 
 st.markdown("---")
 st.caption(f"📦 Sistema Mobile • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
