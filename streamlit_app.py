@@ -51,12 +51,13 @@ def carregar_produtos():
         return pd.DataFrame()
 
 # Função para movimentar estoque
-def movimentar_estoque(codigo, quantidade, tipo):
+def movimentar_estoque(codigo, quantidade, tipo, colaborador):
     try:
         data = {
             'codigo': str(codigo),
             'quantidade': int(quantidade),
-            'tipo': tipo
+            'tipo': tipo,
+            'colaborador': str(colaborador)
         }
         
         response = requests.post(WEBHOOK_URL, json=data, timeout=15)
@@ -81,6 +82,10 @@ if produtos_df.empty:
     st.stop()
 
 st.success(f"✅ {len(produtos_df)} produtos carregados")
+
+# Seleção de colaborador
+colaboradores = ['João Silva', 'Maria Santos', 'Pedro Costa', 'Ana Oliveira', 'Carlos Lima', 'Outro']
+colaborador_selecionado = st.selectbox("👤 Colaborador:", colaboradores)
 
 # Filtro por categoria
 if 'categoria' in produtos_df.columns:
@@ -125,7 +130,7 @@ if busca and len(busca) >= 2:
             with col1:
                 qtd_entrada = st.number_input("Entrada:", min_value=1, value=1, key=f"ent_{i}")
                 if st.button("➕ Entrada", key=f"btn_ent_{i}"):
-                    resultado = movimentar_estoque(produto['codigo'], qtd_entrada, 'entrada')
+                    resultado = movimentar_estoque(produto['codigo'], qtd_entrada, 'entrada', colaborador_selecionado)
                     if resultado['success']:
                         st.success(f"✅ {resultado['message']}")
                         st.cache_data.clear()
@@ -137,7 +142,7 @@ if busca and len(busca) >= 2:
                 max_saida = max(1, int(produto['estoque_atual']))
                 qtd_saida = st.number_input("Saída:", min_value=1, max_value=max_saida, value=1, key=f"sai_{i}")
                 if st.button("➖ Saída", key=f"btn_sai_{i}"):
-                    resultado = movimentar_estoque(produto['codigo'], qtd_saida, 'saida')
+                    resultado = movimentar_estoque(produto['codigo'], qtd_saida, 'saida', colaborador_selecionado)
                     if resultado['success']:
                         st.success(f"✅ {resultado['message']}")
                         st.cache_data.clear()
