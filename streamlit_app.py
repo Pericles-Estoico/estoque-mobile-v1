@@ -84,7 +84,7 @@ if produtos_df.empty:
 st.success(f"✅ {len(produtos_df)} produtos carregados")
 
 # Seleção de colaborador
-colaboradores = ['João Silva', 'Maria Santos', 'Pedro Costa', 'Ana Oliveira', 'Carlos Lima', 'Outro']
+colaboradores = ['Camila', 'Maria Luis', 'Anny', 'Pericles', 'Cris Vanti', 'Outro']
 colaborador_selecionado = st.selectbox("👤 Colaborador:", colaboradores)
 
 # Filtro por categoria
