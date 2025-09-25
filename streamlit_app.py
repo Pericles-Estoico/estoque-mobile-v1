@@ -6,7 +6,7 @@ from io import StringIO
 
 # Configuração
 st.set_page_config(
-    page_title="📦 Estoque Mobile",
+    page_title="📦 Estoque Mobile - Silva Holding",
     page_icon="📦",
     layout="wide"
 )
@@ -20,53 +20,38 @@ WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwTGCrmKaWx0jz57XR8y-z9Fo
 def carregar_produtos():
     try:
         response = requests.get(SHEETS_URL, timeout=10)
-        df = pd.read_csv(StringIO(response.text))
+        response.raise_for_status()
         
-        # Verificar colunas mínimas
-        if 'codigo' not in df.columns or 'nome' not in df.columns:
-            st.error("Colunas básicas não encontradas")
-            return pd.DataFrame()
-        
-        # Limpar dados
-        df = df.dropna(subset=['codigo', 'nome'])
-        
-        # Garantir colunas numéricas
-        if 'estoque_atual' in df.columns:
-            df['estoque_atual'] = pd.to_numeric(df['estoque_atual'], errors='coerce').fillna(0)
-        else:
-            df['estoque_atual'] = 0
-            
-        if 'estoque_min' in df.columns:
-            df['estoque_min'] = pd.to_numeric(df['estoque_min'], errors='coerce').fillna(0)
-        else:
-            df['estoque_min'] = 0
-            
-        if 'categoria' not in df.columns:
-            df['categoria'] = 'Geral'
+        csv_data = StringIO(response.text)
+        df = pd.read_csv(csv_data)
         
         return df
-        
     except Exception as e:
-        st.error(f"Erro: {str(e)}")
+        st.error(f"Erro ao carregar dados: {str(e)}")
         return pd.DataFrame()
 
 # Função para movimentar estoque
 def movimentar_estoque(codigo, quantidade, tipo, colaborador):
     try:
-        data = {
-            'codigo': str(codigo),
+        dados = {
+            'codigo': codigo,
             'quantidade': int(quantidade),
             'tipo': tipo,
-            'colaborador': str(colaborador)
+            'colaborador': colaborador
         }
         
-        response = requests.post(WEBHOOK_URL, json=data, timeout=15)
-        result = response.json()
+        response = requests.post(
+            WEBHOOK_URL,
+            json=dados,
+            headers={'Content-Type': 'application/json'},
+            timeout=30
+        )
         
-        if result.get('success'):
-            return {'success': True, 'message': f'{tipo.title()} realizada!'}
+        if response.status_code == 200:
+            resultado = response.json()
+            return resultado
         else:
-            return {'success': False, 'error': result.get('error', 'Erro')}
+            return {'success': False, 'error': f'Erro HTTP: {response.status_code}'}
         
     except Exception as e:
         return {'success': False, 'error': str(e)}
@@ -77,7 +62,7 @@ with col2:
     try:
         st.image("logo_silva.jpeg", width=200)
     except:
-        st.title("📦 SILVA HOLDING")
+        st.title("🦁 SILVA HOLDING")
     
     st.markdown("""
     <div style="text-align: center;">
@@ -92,7 +77,7 @@ with col2:
 produtos_df = carregar_produtos()
 
 if produtos_df.empty:
-    st.error("❌ Erro ao carregar produtos")
+    st.error("❌ Não foi possível carregar os produtos")
     st.stop()
 
 st.success(f"✅ {len(produtos_df)} produtos carregados")
@@ -101,7 +86,7 @@ st.success(f"✅ {len(produtos_df)} produtos carregados")
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     # Seleção de colaborador
-    colaboradores = ['João Silva', 'Maria Santos', 'Pedro Costa', 'Ana Oliveira', 'Carlos Lima', 'Outro']
+    colaboradores = ['Pericles', 'Maria', 'Camila', 'Cris VantiStella', 'Outro']
     colaborador_selecionado = st.selectbox("👤 Colaborador:", colaboradores)
 
     # Filtro por categoria
@@ -123,9 +108,10 @@ with col2:
 
 if busca and len(busca) >= 2:
     # Filtrar produtos (dentro da categoria selecionada)
-    mask = (produtos_filtrados['codigo'].astype(str).str.contains(busca, case=False, na=False) | 
-            produtos_filtrados['nome'].astype(str).str.contains(busca, case=False, na=False))
-    produtos_encontrados = produtos_filtrados[mask].head(5)
+    produtos_encontrados = produtos_filtrados[
+        produtos_filtrados['codigo'].str.contains(busca, case=False, na=False) |
+        produtos_filtrados['nome'].str.contains(busca, case=False, na=False)
+    ]
     
     if not produtos_encontrados.empty:
         st.write(f"**{len(produtos_encontrados)} produto(s) encontrado(s):**")
@@ -164,8 +150,7 @@ if busca and len(busca) >= 2:
             
             st.markdown("---")
     else:
-        st.info("Nenhum produto encontrado")
-
+        st.warning("❌ Nenhum produto encontrado")
 elif not busca:
     st.info("💡 Digite pelo menos 2 caracteres para buscar")
 
@@ -180,7 +165,7 @@ if not produtos_baixos.empty:
         for i, (idx, produto) in enumerate(produtos_baixos.head(3).iterrows()):
             st.markdown(f"""
             <div style="background: #fff3cd; padding: 0.8rem; border-radius: 6px; margin: 0.3rem 0; border-left: 4px solid #ffc107;">
-                <strong>{produto['codigo']} - {produto['nome']}</strong><br>
+                <strong>{produto['codigo']}</strong><br>
                 <small>📦 Atual: {int(produto['estoque_atual'])} | Mínimo: {int(produto['estoque_min'])}</small>
             </div>
             """, unsafe_allow_html=True)
@@ -194,11 +179,9 @@ estoque_total = produtos_df['estoque_atual'].sum()
 
 col1, col2 = st.columns(2)
 col1.metric("Total Produtos", total_produtos)
-col2.metric("Estoque Total", f"{estoque_total:,.0f}")
+col2.metric("Estoque Total", f"{estoque_total:.0f}")
 
 # Atualizar
 if st.button("🔄 Atualizar"):
     st.cache_data.clear()
     st.rerun()
-
-st.caption(f"📦 Mobile • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
