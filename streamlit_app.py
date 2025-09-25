@@ -13,7 +13,7 @@ st.set_page_config(
 
 # URLs
 SHEETS_URL = "https://docs.google.com/spreadsheets/d/1PpiMQingHf4llA03BiPIuPJPIZqul4grRU_emWDEK1o/export?format=csv"
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbztcleBJ2hsCedvExXIZy5AsXTYknhd4L83BEUWfBswFKgKOXmgMHCAeR9P9Jgmwj9_/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwTGCrmKaWx0jz57XR8y-z9Fo-aETwAwoSMOd5hA-fSZM9nDytnrOiZ4bvOQqjazSxA/exec"
 
 # Função para carregar produtos
 @st.cache_data(ttl=30)
