@@ -71,8 +71,22 @@ def movimentar_estoque(codigo, quantidade, tipo, colaborador):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-# Interface
-st.title("📦 Estoque Mobile")
+# Interface com logo e centralização
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    try:
+        st.image("logo_silva.jpeg", width=200)
+    except:
+        st.title("📦 SILVA HOLDING")
+    
+    st.markdown("""
+    <div style="text-align: center;">
+        <h2>📦 Estoque Mobile</h2>
+        <p style="font-style: italic; color: #666; font-size: 0.9em;">
+        "Se parar para sentir o perfume das rosas, vem um caminhão e te atropela"
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Carregar dados
 produtos_df = carregar_produtos()
@@ -83,26 +97,29 @@ if produtos_df.empty:
 
 st.success(f"✅ {len(produtos_df)} produtos carregados")
 
-# Seleção de colaborador
-colaboradores = ['Camila', 'Maria Luis', 'Anny', 'Pericles', 'Cris Vanti', 'Outro']
-colaborador_selecionado = st.selectbox("👤 Colaborador:", colaboradores)
+# Controles centralizados
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    # Seleção de colaborador
+    colaboradores = ['João Silva', 'Maria Santos', 'Pedro Costa', 'Ana Oliveira', 'Carlos Lima', 'Outro']
+    colaborador_selecionado = st.selectbox("👤 Colaborador:", colaboradores)
 
-# Filtro por categoria
-if 'categoria' in produtos_df.columns:
-    categorias = ['Todas'] + sorted(produtos_df['categoria'].unique().tolist())
-    categoria_selecionada = st.selectbox("📂 Categoria:", categorias)
-    
-    if categoria_selecionada == 'Todas':
-        produtos_filtrados = produtos_df
+    # Filtro por categoria
+    if 'categoria' in produtos_df.columns:
+        categorias = ['Todas'] + sorted(produtos_df['categoria'].unique().tolist())
+        categoria_selecionada = st.selectbox("📂 Categoria:", categorias)
+        
+        if categoria_selecionada == 'Todas':
+            produtos_filtrados = produtos_df
+        else:
+            produtos_filtrados = produtos_df[produtos_df['categoria'] == categoria_selecionada]
+        
+        st.info(f"📦 {len(produtos_filtrados)} produtos na categoria '{categoria_selecionada}'")
     else:
-        produtos_filtrados = produtos_df[produtos_df['categoria'] == categoria_selecionada]
-    
-    st.info(f"📦 {len(produtos_filtrados)} produtos na categoria '{categoria_selecionada}'")
-else:
-    produtos_filtrados = produtos_df
+        produtos_filtrados = produtos_df
 
-# Busca
-busca = st.text_input("🔍 Buscar produto:", placeholder="Digite código ou nome...")
+    # Busca
+    busca = st.text_input("🔍 Buscar produto:", placeholder="Digite código ou nome...")
 
 if busca and len(busca) >= 2:
     # Filtrar produtos (dentro da categoria selecionada)
@@ -114,21 +131,15 @@ if busca and len(busca) >= 2:
         st.write(f"**{len(produtos_encontrados)} produto(s) encontrado(s):**")
         
         for i, (idx, produto) in enumerate(produtos_encontrados.iterrows()):
-            # Card do produto melhorado
-            with st.container():
-                st.markdown(f"""
-                <div style="background: #f0f2f6; padding: 1rem; border-radius: 8px; margin: 0.5rem 0; border-left: 4px solid #1f77b4;">
-                    <strong style="font-size: 1.1em;">{produto['codigo']} - {produto['nome']}</strong><br>
-                    <small>📂 {produto.get('categoria', 'N/A')}</small><br>
-                    <strong style="color: #1f77b4;">📦 Estoque: {int(produto['estoque_atual'])} unidades</strong>
-                </div>
-                """, unsafe_allow_html=True)
+            # Layout compacto - só código e estoque
+            st.markdown(f"**{produto['codigo']}** | {int(produto['estoque_atual'])} unidades")
             
-            # Controles
-            col1, col2 = st.columns(2)
+            # Controles compactos em uma linha
+            col1, col2, col3, col4 = st.columns([1, 2, 1, 2])
             
             with col1:
-                qtd_entrada = st.number_input("Entrada:", min_value=1, value=1, key=f"ent_{i}")
+                qtd_entrada = st.number_input("", min_value=1, value=1, key=f"ent_{i}")
+            with col2:
                 if st.button("➕ Entrada", key=f"btn_ent_{i}"):
                     resultado = movimentar_estoque(produto['codigo'], qtd_entrada, 'entrada', colaborador_selecionado)
                     if resultado['success']:
@@ -138,9 +149,10 @@ if busca and len(busca) >= 2:
                     else:
                         st.error(f"❌ {resultado['error']}")
             
-            with col2:
+            with col3:
                 max_saida = max(1, int(produto['estoque_atual']))
-                qtd_saida = st.number_input("Saída:", min_value=1, max_value=max_saida, value=1, key=f"sai_{i}")
+                qtd_saida = st.number_input("", min_value=1, max_value=max_saida, value=1, key=f"sai_{i}")
+            with col4:
                 if st.button("➖ Saída", key=f"btn_sai_{i}"):
                     resultado = movimentar_estoque(produto['codigo'], qtd_saida, 'saida', colaborador_selecionado)
                     if resultado['success']:
