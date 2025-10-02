@@ -86,7 +86,7 @@ st.success(f"✅ {len(produtos_df)} produtos carregados")
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     # Seleção de colaborador
-    colaboradores = ['Pericles', 'Maria', 'Camila', 'Cris VantiStella', 'Outro']
+    colaboradores = ['Pericles', 'Maria', 'Camila', 'Cris Vanti', 'Stella', 'Raquel']
     colaborador_selecionado = st.selectbox("👤 Colaborador:", colaboradores)
 
     # Filtro por categoria
